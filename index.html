@@ -69,21 +69,33 @@
     }
 
     function onCheckInResponse(response) {
-      const cameraView = document.getElementById('camera-view');
-      const resultView = document.getElementById('result-view');
-      
-      cameraView.style.display = 'none';
-      resultView.style.display = 'flex';
+  const cameraView = document.getElementById('camera-view');
+  const resultView = document.getElementById('result-view');
+  
+  cameraView.style.display = 'none';
+  resultView.style.display = 'flex'; // 画面を表示
 
-      resultView.style.backgroundColor = response.bg;
-      document.getElementById('res-title').innerHTML = response.title;
-      document.getElementById('res-msg').innerHTML = response.msg;
-
-      setTimeout(() => {
-        startScanner();
-      }, 3000);
-    }
-
+  resultView.style.backgroundColor = response.bg;
+  document.getElementById('res-title').innerHTML = response.title;
+  
+  // 👇 ★ここが最重要：成否によって戻り方を変える条件分岐
+  if (response.status === "success") {
+    // 成功（success）のときだけ、3秒後に自動で戻す
+    document.getElementById('res-msg').innerHTML = response.msg;
+    setTimeout(() => {
+      startScanner();
+    }, 3000);
+  } else {
+    // それ以外（error や already）のときは、自動で戻さず停止する
+    document.getElementById('res-msg').innerHTML = response.msg + "<br><br><small>【画面をタップするとカメラに戻ります】</small>";
+    
+    // 画面タップでカメラに戻る処理を追加
+    resultView.onclick = function() {
+      resultView.onclick = null; // 連打防止のためにイベントを解除
+      startScanner(); // カメラに戻る
+    };
+  }
+}
     window.onload = startScanner;
   </script>
 </body>
