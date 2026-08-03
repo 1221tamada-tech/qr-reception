@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QRコード受付システム（デバッグモード）</title>
+  <title>QRコード受付システム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
@@ -10,8 +10,8 @@
     #camera-view { max-width: 500px; margin: 0 auto; }
     #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     #result-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; color: white; }
-    .title { font-size: 28px; font-weight: bold; margin-bottom: 20px; }
-    .message { font-size: 16px; padding: 0 20px; line-height: 1.6; text-align: left; background: rgba(0,0,0,0.3); border-radius: 8px; margin: 10px; }
+    .title { font-size: 32px; font-weight: bold; margin-bottom: 20px; }
+    .message { font-size: 20px; padding: 0 20px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -48,20 +48,24 @@
         let rawText = decodedText.trim();
         let uuid = rawText;
 
+        // URL形式から uuid の値だけを綺麗に抽出する
         if (rawText.includes('uuid=')) {
           try {
             let partAfterUuid = rawText.split('uuid=')[1];
             uuid = partAfterUuid.split('&')[0].split('#')[0].split('/')[0];
-          } catch (e) {}
+          } catch (e) {
+            console.error("UUID抽出エラー:", e);
+          }
         }
 
+        // 抽出したUUIDをGASへ送信
         fetch(GAS_URL, {
           method: "POST",
           body: JSON.stringify({ uuid: uuid })
         })
         .then(res => res.json())
         .then(response => {
-          onCheckInResponse(response, rawText, uuid);
+          onCheckInResponse(response);
         })
         .catch(err => {
           alert("通信エラーが発生しました: " + err);
@@ -70,7 +74,7 @@
       });
     }
 
-    function onCheckInResponse(response, rawText, extractedUuid) {
+    function onCheckInResponse(response) {
       const cameraView = document.getElementById('camera-view');
       const resultView = document.getElementById('result-view');
       
@@ -80,18 +84,20 @@
       resultView.style.backgroundColor = response.bg;
       document.getElementById('res-title').innerHTML = response.title;
       
-      // デバッグ情報を画面に詳しく表示
-      let debugInfo = `<p>${response.msg}</p><hr>`;
-      debugInfo += `<p><b>【カメラが読み取った生の文字】</b><br>${rawText}</p>`;
-      debugInfo += `<p><b>【抽出してGASに送ったUUID】</b><br>${extractedUuid}</p>`;
-      debugInfo += `<br><small>【タップでカメラに戻る】</small>`;
-
-      document.getElementById('res-msg').innerHTML = debugInfo;
-
-      resultView.onclick = function() {
-        resultView.onclick = null;
-        startScanner();
-      };
+      // 成功時（success）のみ3秒後に自動で戻る
+      if (response.status === "success") {
+        document.getElementById('res-msg').innerHTML = response.msg;
+        setTimeout(() => {
+          startScanner();
+        }, 3000);
+      } else {
+        // エラー時は自動で戻さず画面を停止し、タップで戻る
+        document.getElementById('res-msg').innerHTML = response.msg + "<br><br><small style='font-size: 14px; opacity: 0.8;'>【画面をタップするとカメラに戻ります】</small>";
+        resultView.onclick = function() {
+          resultView.onclick = null;
+          startScanner();
+        };
+      }
     }
 
     window.onload = startScanner;
