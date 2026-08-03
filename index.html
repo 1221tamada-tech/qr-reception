@@ -45,28 +45,40 @@
     }
 
     function onScanSuccess(decodedText) {
-      html5QrcodeScanner.stop().then(() => {
-        let uuid = decodedText;
-        if (decodedText.includes('uuid=')) {
-          const urlParams = new URLSearchParams(decodedText.split('?')[1]);
-          uuid = urlParams.get('uuid');
-        }
+  html5QrcodeScanner.stop().then(() => {
+    let uuid = decodedText.trim(); // 前後の余計な空白を削除
 
-        // GASへデータを送信
-        fetch(GAS_URL, {
-          method: "POST",
-          body: JSON.stringify({ uuid: uuid })
-        })
-        .then(res => res.json())
-        .then(response => {
-          onCheckInResponse(response);
-        })
-        .catch(err => {
-          alert("通信エラーが発生しました: " + err);
-          startScanner();
-        });
-      });
+    // もし読み取ったテキストに 「uuid=」 が含まれている場合、その後のID部分だけを抽出する
+    if (uuid.includes('uuid=')) {
+      try {
+        // ?uuid=12345 や &uuid=12345 などの形式から値を取得
+        const match = uuid.match(/[?&]uuid=([^&]+)/);
+        if (match && match[1]) {
+          uuid = match[1];
+        } else {
+          // = の後ろを単純に取得（予備処理）
+          uuid = uuid.split('uuid=')[1].split('&')[0];
+        }
+      } catch (e) {
+        console.error("UUID抽出エラー:", e);
+      }
     }
+
+    // 抽出・整形した UUID をGASへ送信
+    fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify({ uuid: uuid })
+    })
+    .then(res => res.json())
+    .then(response => {
+      onCheckInResponse(response);
+    })
+    .catch(err => {
+      alert("通信エラーが発生しました: " + err);
+      startScanner();
+    });
+  });
+}
 
     function onCheckInResponse(response) {
   const cameraView = document.getElementById('camera-view');
