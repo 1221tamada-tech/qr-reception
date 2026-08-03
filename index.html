@@ -44,34 +44,37 @@
     }
 
     function onScanSuccess(decodedText) {
-  html5QrcodeScanner.stop().then(() => {
-    let rawText = decodedText.trim();
-    let uuid = rawText;
+      html5QrcodeScanner.stop().then(() => {
+        let rawText = decodedText.trim();
+        let uuid = rawText;
 
-    // URL形式から uuid の値だけを綺麗に抽出する
-    if (rawText.includes('uuid=')) {
-      try {
-        let partAfterUuid = rawText.split('uuid=')[1];
-        uuid = partAfterUuid.split('&')[0].split('#')[0].split('/')[0];
-      } catch (e) {
-        console.error("UUID抽出エラー:", e);
-      }
+        // ★どんなURL形式でも uuid= の後ろの文字だけを確実に抽出する超強力な処理
+        if (rawText.includes('uuid=')) {
+          try {
+            // "uuid=" より後ろの部分を取得し、さらに別のパラメータ(&や#や/)があればそこで切る
+            let partAfterUuid = rawText.split('uuid=')[1];
+            uuid = partAfterUuid.split('&')[0].split('#')[0].split('/')[0];
+          } catch (e) {
+            console.error("UUID抽出エラー:", e);
+          }
+        }
+
+        // 抽出したUUIDをGASへ送信
+        fetch(GAS_URL, {
+          method: "POST",
+          body: JSON.stringify({ uuid: uuid })
+        })
+        .then(res => res.json())
+        .then(response => {
+          onCheckInResponse(response);
+        })
+        .catch(err => {
+          alert("通信エラーが発生しました: " + err);
+          startScanner();
+        });
+      });
     }
-
-    // ★GET通信でGASへ送信（標準カメラと同じパラメータの渡し方にする）
-    fetch(`${GAS_URL}?uuid=${encodeURIComponent(uuid)}`, {
-      method: "GET"
-    })
-    .then(res => res.json())
-    .then(response => {
-      onCheckInResponse(response);
-    })
-    .catch(err => {
-      alert("通信エラーが発生しました: " + err);
-      startScanner();
-    });
-  });
-}
+    
     function onCheckInResponse(response) {
       const cameraView = document.getElementById('camera-view');
       const resultView = document.getElementById('result-view');
